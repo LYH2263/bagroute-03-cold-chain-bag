@@ -11,7 +11,7 @@ const stripLinks = [
   ["/weights", "袋重"],
 ];
 
-type Stop = { id: number; route_id: number; seq: number; name: string; weight_kg: number; volume_l: number };
+type Stop = { id: number; route_id: number; seq: number; name: string; weight_kg: number; volume_l: number; is_cold_chain: boolean };
 type Route = { id: number; name: string };
 type Weight = {
   bag_id: number;
@@ -19,6 +19,7 @@ type Weight = {
   route_id: number;
   weight_kg: number;
   volume_l: number;
+  is_cold_chain: boolean;
   fill_weight_pct: number;
   fill_volume_pct: number;
 };
@@ -95,9 +96,9 @@ export default function Layout() {
           )}
           {stops.map((s, i) => (
             <div key={s.id} className="stop-bead" style={{ zIndex: stops.length - i }}>
-              <div className="stop-bead-dot" />
+              <div className={`stop-bead-dot${s.is_cold_chain ? " stop-bead-dot--cold" : ""}`} />
               <div className="stop-bead-card">
-                <span className="stop-bead-seq">#{s.seq}</span>
+                <span className="stop-bead-seq">#{s.seq}{s.is_cold_chain && <span className="cold-mark"> ❄冷链</span>}</span>
                 <strong>{s.name}</strong>
                 <span className="mono">
                   {s.weight_kg}kg · {s.volume_l}L
@@ -119,7 +120,7 @@ export default function Layout() {
           {meters.map((w) => (
             <div key={w.bag_id} className="meter-block">
               <div className="meter-head">
-                <span>袋 {w.bag_index}</span>
+                <span>袋 {w.bag_index}{w.is_cold_chain && <span className="cold-tag cold-tag--inline">❄冷链</span>}</span>
                 <span className="mono">
                   {w.weight_kg}kg / {w.volume_l}L
                 </span>

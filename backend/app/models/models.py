@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -12,6 +12,7 @@ class DeliveryRoute(Base):
     name: Mapped[str] = mapped_column(String(80), unique=True)
     max_weight_kg: Mapped[float] = mapped_column(Float, default=8.0)
     max_volume_l: Mapped[float] = mapped_column(Float, default=20.0)
+    max_cold_volume_l: Mapped[float] = mapped_column(Float, default=12.0)
     stops: Mapped[list["SubscriberStop"]] = relationship(back_populates="route")
 
 
@@ -23,6 +24,7 @@ class SubscriberStop(Base):
     name: Mapped[str] = mapped_column(String(80))
     weight_kg: Mapped[float] = mapped_column(Float)
     volume_l: Mapped[float] = mapped_column(Float)
+    is_cold_chain: Mapped[bool] = mapped_column(Boolean, default=False)
     route: Mapped[DeliveryRoute] = relationship(back_populates="stops")
 
 
@@ -33,6 +35,7 @@ class PackBag(Base):
     bag_index: Mapped[int] = mapped_column(Integer)
     weight_kg: Mapped[float] = mapped_column(Float)
     volume_l: Mapped[float] = mapped_column(Float)
+    is_cold_chain: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     items: Mapped[list["BagItem"]] = relationship(back_populates="bag")
 

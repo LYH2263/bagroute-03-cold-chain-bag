@@ -10,7 +10,9 @@ from app.schemas.schemas import (
     PackRequest,
     RejectOut,
     RouteOut,
+    RouteUpdate,
     StopOut,
+    StopUpdate,
     WeightOut,
 )
 from app.services.pack_engine import StopItem, pack_route
@@ -28,12 +30,41 @@ def routes(db: Session = Depends(get_db)):
     return db.scalars(select(DeliveryRoute).order_by(DeliveryRoute.id)).all()
 
 
+@api_router.patch("/routes/{route_id}", response_model=RouteOut)
+def update_route(route_id: int, body: RouteUpdate, db: Session = Depends(get_db)):
+    route = db.get(DeliveryRoute, route_id)
+    if not route:
+        raise HTTPException(404, "路线不存在")
+    if body.max_cold_volume_l is not None:
+        cap = body.max_cold_volume_l
+        if cap <= 0:
+            raise HTTPException(400, "冷链体积上限必须为正数")
+        if cap > route.max_volume_l:
+            raise HTTPException(400, "冷链体积上限不得超过普通体积上限")
+        route.max_cold_volume_l = cap
+    db.commit()
+    db.refresh(route)
+    return route
+
+
 @api_router.get("/stops", response_model=list[StopOut])
 def stops(route_id: int | None = None, db: Session = Depends(get_db)):
     q = select(SubscriberStop).order_by(SubscriberStop.route_id, SubscriberStop.seq)
     if route_id is not None:
         q = q.where(SubscriberStop.route_id == route_id)
     return db.scalars(q).all()
+
+
+@api_router.patch("/stops/{stop_id}", response_model=StopOut)
+def update_stop(stop_id: int, body: StopUpdate, db: Session = Depends(get_db)):
+    stop = db.get(SubscriberStop, stop_id)
+    if not stop:
+        raise HTTPException(404, "订户点不存在")
+    if body.is_cold_chain is not None:
+        stop.is_cold_chain = body.is_cold_chain
+    db.commit()
+    db.refresh(stop)
+    return stop
 
 
 @api_router.post("/pack", response_model=list[BagOut])
@@ -56,9 +87,14 @@ def pack(body: PackRequest, db: Session = Depends(get_db)):
         select(SubscriberStop).where(SubscriberStop.route_id == route.id).order_by(SubscriberStop.seq)
     ).all()
     items = [
-        StopItem(s.id, s.seq, s.weight_kg, s.volume_l, s.name) for s in stops
+        StopItem(s.id, s.seq, s.weight_kg, s.volume_l, s.name, s.is_cold_chain) for s in stops
     ]
-    result = pack_route(items, route.max_weight_kg, route.max_volume_l)
+    result = pack_route(
+        items,
+        route.max_weight_kg,
+        route.max_volume_l,
+        route.max_cold_volume_l,
+    )
     out_bags: list[PackBag] = []
     for bag in result.bags:
         row = PackBag(
@@ -66,6 +102,7 @@ def pack(body: PackRequest, db: Session = Depends(get_db)):
             bag_index=bag.bag_index,
             weight_kg=round(bag.weight_kg, 3),
             volume_l=round(bag.volume_l, 3),
+            is_cold_chain=bag.is_cold_chain,
         )
         db.add(row)
         db.flush()
@@ -97,6 +134,7 @@ def pack(body: PackRequest, db: Session = Depends(get_db)):
             bag_index=b.bag_index,
             weight_kg=b.weight_kg,
             volume_l=b.volume_l,
+            is_cold_chain=b.is_cold_chain,
             items=[
                 BagItemOut(
                     stop_id=i.stop_id,
@@ -124,6 +162,7 @@ def bags(db: Session = Depends(get_db)):
                 bag_index=b.bag_index,
                 weight_kg=b.weight_kg,
                 volume_l=b.volume_l,
+                is_cold_chain=b.is_cold_chain,
                 items=[
                     BagItemOut(
                         stop_id=i.stop_id,
@@ -150,6 +189,8 @@ def weights(db: Session = Depends(get_db)):
     for b in bags:
         route = db.get(DeliveryRoute, b.route_id)
         assert route
+        # 冷链袋体积填充对照冷链体积上限，普通袋对照普通体积上限。
+        vol_cap = route.max_cold_volume_l if b.is_cold_chain else route.max_volume_l
         out.append(
             WeightOut(
                 bag_id=b.id,
@@ -157,8 +198,9 @@ def weights(db: Session = Depends(get_db)):
                 route_id=b.route_id,
                 weight_kg=b.weight_kg,
                 volume_l=b.volume_l,
+                is_cold_chain=b.is_cold_chain,
                 fill_weight_pct=round(100 * b.weight_kg / route.max_weight_kg, 1),
-                fill_volume_pct=round(100 * b.volume_l / route.max_volume_l, 1),
+                fill_volume_pct=round(100 * b.volume_l / vol_cap, 1),
             )
         )
     return out

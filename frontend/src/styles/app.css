@@ -10,6 +10,9 @@
   --accent: var(--route-leaf);
   --bag: var(--route-moss);
   --reject: #d96c4a;
+  --cold: #5fb8e8;
+  --cold-deep: #2c6a94;
+  --cold-ink: #06121c;
   --strip: #1a2818;
   font-family: "Noto Sans SC", "IBM Plex Sans", system-ui, sans-serif;
 }
@@ -250,3 +253,56 @@ button {
 }
 .fill { height: 10px; background: #2a3824; border-radius: 2px; overflow: hidden; }
 .fill > span { display: block; height: 100%; background: var(--accent); }
+
+/* —— 冷链标识：冰蓝，与普通绿色区分 —— */
+.cold-tag {
+  display: inline-block;
+  background: var(--cold);
+  color: var(--cold-ink);
+  font-size: .68rem;
+  font-weight: 800;
+  border-radius: 999px;
+  padding: .1rem .45rem;
+  margin-left: .3rem;
+  white-space: nowrap;
+}
+.cold-tag--inline { margin-left: .35rem; vertical-align: middle; }
+.normal-tag {
+  display: inline-block;
+  background: #2a3824;
+  color: var(--route-muted);
+  font-size: .68rem;
+  border-radius: 999px;
+  padding: .1rem .45rem;
+  white-space: nowrap;
+}
+.row-cold { background: rgba(95, 184, 232, .07); }
+.reason-cold { color: var(--cold); font-weight: 700; }
+.cold-mark { color: var(--cold); font-weight: 700; }
+.stop-bead-dot--cold {
+  background: var(--cold);
+  box-shadow: 0 0 0 2px var(--cold-deep);
+}
+.stop-chip--cold { border-left-color: var(--cold); }
+.cold-toggle {
+  font-size: .72rem;
+  color: var(--route-muted);
+  display: flex;
+  align-items: center;
+  gap: .25rem;
+  margin-top: .1rem;
+}
+.cold-toggle input { accent-color: var(--cold); width: auto; padding: 0; }
+.cold-input { width: 86px; padding: .3rem .45rem; }
+.bag-block--cold {
+  background: var(--cold-deep);
+  border: 1px solid var(--cold);
+}
+.bag-item-name--cold { color: #bfe6fb; font-weight: 700; }
+.bag-summary { display: flex; align-items: center; gap: .5rem; }
+.bag-summary .cold-tag, .bag-summary .normal-tag { margin-left: 0; }
+.cap-note { color: var(--cold); font-size: .72rem; }
+.fill > span.fill-cold { background: linear-gradient(90deg, var(--cold-deep), var(--cold)); }
+.hint { color: var(--route-muted); font-size: .78rem; margin-top: .75rem; }
+.bag-names { white-space: normal; }
+
