@@ -10,6 +10,8 @@ from app.schemas.schemas import (
     PackRequest,
     RejectOut,
     RouteOut,
+    RouteUpdate,
+    StopColdUpdate,
     StopOut,
     WeightOut,
 )
@@ -28,12 +30,39 @@ def routes(db: Session = Depends(get_db)):
     return db.scalars(select(DeliveryRoute).order_by(DeliveryRoute.id)).all()
 
 
+@api_router.patch("/routes/{route_id}", response_model=RouteOut)
+def update_route(route_id: int, body: RouteUpdate, db: Session = Depends(get_db)):
+    route = db.get(DeliveryRoute, route_id)
+    if not route:
+        raise HTTPException(404, "路线不存在")
+    if body.max_weight_kg is not None:
+        route.max_weight_kg = body.max_weight_kg
+    if body.max_volume_l is not None:
+        route.max_volume_l = body.max_volume_l
+    if body.max_cold_volume_l is not None:
+        route.max_cold_volume_l = body.max_cold_volume_l
+    db.commit()
+    db.refresh(route)
+    return route
+
+
 @api_router.get("/stops", response_model=list[StopOut])
 def stops(route_id: int | None = None, db: Session = Depends(get_db)):
     q = select(SubscriberStop).order_by(SubscriberStop.route_id, SubscriberStop.seq)
     if route_id is not None:
         q = q.where(SubscriberStop.route_id == route_id)
     return db.scalars(q).all()
+
+
+@api_router.patch("/stops/{stop_id}/cold", response_model=StopOut)
+def update_stop_cold(stop_id: int, body: StopColdUpdate, db: Session = Depends(get_db)):
+    stop = db.get(SubscriberStop, stop_id)
+    if not stop:
+        raise HTTPException(404, "订户点不存在")
+    stop.is_cold = body.is_cold
+    db.commit()
+    db.refresh(stop)
+    return stop
 
 
 @api_router.post("/pack", response_model=list[BagOut])
@@ -56,9 +85,14 @@ def pack(body: PackRequest, db: Session = Depends(get_db)):
         select(SubscriberStop).where(SubscriberStop.route_id == route.id).order_by(SubscriberStop.seq)
     ).all()
     items = [
-        StopItem(s.id, s.seq, s.weight_kg, s.volume_l, s.name) for s in stops
+        StopItem(s.id, s.seq, s.weight_kg, s.volume_l, s.name, s.is_cold) for s in stops
     ]
-    result = pack_route(items, route.max_weight_kg, route.max_volume_l)
+    result = pack_route(
+        items,
+        route.max_weight_kg,
+        route.max_volume_l,
+        route.max_cold_volume_l,
+    )
     out_bags: list[PackBag] = []
     for bag in result.bags:
         row = PackBag(
@@ -66,6 +100,7 @@ def pack(body: PackRequest, db: Session = Depends(get_db)):
             bag_index=bag.bag_index,
             weight_kg=round(bag.weight_kg, 3),
             volume_l=round(bag.volume_l, 3),
+            is_cold=bag.is_cold,
         )
         db.add(row)
         db.flush()
@@ -77,6 +112,7 @@ def pack(body: PackRequest, db: Session = Depends(get_db)):
                     stop_name=it.label,
                     weight_kg=it.weight_kg,
                     volume_l=it.volume_l,
+                    is_cold=it.is_cold,
                 )
             )
         out_bags.append(row)
@@ -87,6 +123,7 @@ def pack(body: PackRequest, db: Session = Depends(get_db)):
                 stop_id=stop.stop_id,
                 stop_name=stop.label,
                 reason=reason,
+                is_cold=stop.is_cold,
             )
         )
     db.commit()
@@ -97,12 +134,14 @@ def pack(body: PackRequest, db: Session = Depends(get_db)):
             bag_index=b.bag_index,
             weight_kg=b.weight_kg,
             volume_l=b.volume_l,
+            is_cold=b.is_cold,
             items=[
                 BagItemOut(
                     stop_id=i.stop_id,
                     stop_name=i.stop_name,
                     weight_kg=i.weight_kg,
                     volume_l=i.volume_l,
+                    is_cold=i.is_cold,
                 )
                 for i in db.scalars(select(BagItem).where(BagItem.bag_id == b.id)).all()
             ],
@@ -124,12 +163,14 @@ def bags(db: Session = Depends(get_db)):
                 bag_index=b.bag_index,
                 weight_kg=b.weight_kg,
                 volume_l=b.volume_l,
+                is_cold=b.is_cold,
                 items=[
                     BagItemOut(
                         stop_id=i.stop_id,
                         stop_name=i.stop_name,
                         weight_kg=i.weight_kg,
                         volume_l=i.volume_l,
+                        is_cold=i.is_cold,
                     )
                     for i in items
                 ],
@@ -150,6 +191,8 @@ def weights(db: Session = Depends(get_db)):
     for b in bags:
         route = db.get(DeliveryRoute, b.route_id)
         assert route
+        # 冷链袋对照冷链体积上限，普通袋对照普通体积上限
+        volume_cap = route.max_cold_volume_l if b.is_cold else route.max_volume_l
         out.append(
             WeightOut(
                 bag_id=b.id,
@@ -157,8 +200,9 @@ def weights(db: Session = Depends(get_db)):
                 route_id=b.route_id,
                 weight_kg=b.weight_kg,
                 volume_l=b.volume_l,
+                is_cold=b.is_cold,
                 fill_weight_pct=round(100 * b.weight_kg / route.max_weight_kg, 1),
-                fill_volume_pct=round(100 * b.volume_l / route.max_volume_l, 1),
+                fill_volume_pct=round(100 * b.volume_l / volume_cap, 1),
             )
         )
     return out

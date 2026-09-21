@@ -1,4 +1,10 @@
-"""Route-order bag packing with weight + volume caps; reject when exceed."""
+"""Route-order bag packing with weight + volume caps; reject when exceed.
+
+冷链规则：
+- 冷链站只能装入冷链袋，非冷链站只能装入普通袋，冷热不混袋。
+- 冷链站对照重量上限与更严的冷链体积上限。
+- 非冷链站仍对照路线普通重量/体积双上限。
+"""
 
 from __future__ import annotations
 
@@ -12,6 +18,7 @@ class StopItem:
     weight_kg: float
     volume_l: float
     label: str = ""
+    is_cold: bool = False
 
 
 @dataclass
@@ -20,6 +27,7 @@ class Bag:
     items: list[StopItem] = field(default_factory=list)
     weight_kg: float = 0.0
     volume_l: float = 0.0
+    is_cold: bool = False
 
 
 @dataclass(frozen=True)
@@ -29,6 +37,9 @@ class PackResult:
 
 
 def can_fit(bag: Bag, item: StopItem, max_weight: float, max_volume: float) -> bool:
+    # 冷热不混袋
+    if bag.is_cold != item.is_cold:
+        return False
     return (
         bag.weight_kg + item.weight_kg <= max_weight + 1e-9
         and bag.volume_l + item.volume_l <= max_volume + 1e-9
@@ -39,27 +50,32 @@ def pack_route(
     stops: list[StopItem],
     max_weight: float,
     max_volume: float,
+    max_cold_volume: float | None = None,
 ) -> PackResult:
+    # 未单独配置冷链上限时，冷链袋也适用普通体积上限
+    cold_volume = max_volume if max_cold_volume is None else max_cold_volume
     ordered = sorted(stops, key=lambda s: s.seq)
     bags: list[Bag] = []
     rejects: list[tuple[StopItem, str]] = []
     current: Bag | None = None
 
     for item in ordered:
-        if item.weight_kg > max_weight or item.volume_l > max_volume:
+        volume_cap = cold_volume if item.is_cold else max_volume
+        if item.weight_kg > max_weight or item.volume_l > volume_cap:
             reason = []
             if item.weight_kg > max_weight:
                 reason.append(f"超重 {item.weight_kg}>{max_weight}")
-            if item.volume_l > max_volume:
-                reason.append(f"超体积 {item.volume_l}>{max_volume}")
+            if item.volume_l > volume_cap:
+                tag = "冷链超体积" if item.is_cold else "超体积"
+                reason.append(f"{tag} {item.volume_l}>{volume_cap}")
             rejects.append((item, "；".join(reason)))
             continue
 
-        if current is None or not can_fit(current, item, max_weight, max_volume):
-            current = Bag(bag_index=len(bags) + 1)
+        if current is None or not can_fit(current, item, max_weight, volume_cap):
+            current = Bag(bag_index=len(bags) + 1, is_cold=item.is_cold)
             bags.append(current)
 
-        if not can_fit(current, item, max_weight, max_volume):
+        if not can_fit(current, item, max_weight, volume_cap):
             # should not happen after single-item check, but keep safe
             rejects.append((item, "无法装入新袋"))
             continue

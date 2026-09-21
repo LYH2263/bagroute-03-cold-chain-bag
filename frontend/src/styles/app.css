@@ -250,3 +250,75 @@ button {
 }
 .fill { height: 10px; background: #2a3824; border-radius: 2px; overflow: hidden; }
 .fill > span { display: block; height: 100%; background: var(--accent); }
+
+/* —— 冷链标识 —— */
+:root {
+  --cold: #6ec6f2;
+  --cold-deep: #2b5a78;
+  --cold-bg: #10202b;
+}
+.cold-badge {
+  display: inline-block;
+  font-size: .75rem;
+  padding: .12rem .5rem;
+  border-radius: 999px;
+  color: #d9f1ff;
+  background: var(--cold-deep);
+  border: 1px solid var(--cold);
+  white-space: nowrap;
+}
+.normal-badge {
+  display: inline-block;
+  font-size: .75rem;
+  padding: .12rem .5rem;
+  border-radius: 999px;
+  color: var(--route-muted);
+  background: #1a2218;
+  border: 1px solid var(--line);
+  white-space: nowrap;
+}
+.row-cold { background: rgba(110, 198, 242, .07); }
+.row-cold-reject { background: rgba(217, 108, 74, .1); }
+.cold-reason { color: #ffb39c; font-weight: 600; }
+
+/* 站点卡片：可点击切换冷链标记；button 样式复位 */
+button.stop-chip {
+  font: inherit;
+  font-weight: 400;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  border-left: 3px solid var(--route-leaf);
+  border-top: 1px solid transparent;
+  border-right: 1px solid transparent;
+  border-bottom: 1px solid transparent;
+  border-radius: 4px;
+}
+button.stop-chip:hover { border-color: var(--line); border-left-color: var(--route-leaf); }
+.stop-chip--cold {
+  border-left-color: var(--cold) !important;
+  background: var(--cold-bg) !important;
+}
+.cold-flag {
+  font-size: .7rem;
+  color: var(--route-muted);
+  margin-top: .1rem;
+}
+.cold-flag--on { color: var(--cold); font-weight: 700; }
+.hint { color: var(--route-muted); font-size: .8rem; }
+.cold-input { padding: .3rem .45rem; }
+
+.bag-item-cell { white-space: nowrap; }
+.bag-item-tag {
+  display: inline-block;
+  padding: .1rem .4rem;
+  border-radius: 4px;
+  font-size: .85rem;
+  background: var(--bag);
+  color: #fff;
+}
+.bag-item-tag--cold {
+  background: var(--cold-deep);
+  box-shadow: inset 0 0 0 1px var(--cold);
+}
+.bag-arrow { color: var(--route-muted); }

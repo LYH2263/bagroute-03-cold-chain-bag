@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 type R = { id: number; name: string };
-type Bag = { id: number; bag_index: number; weight_kg: number; volume_l: number; items: { stop_name: string }[] };
+type Bag = { id: number; bag_index: number; weight_kg: number; volume_l: number; is_cold: boolean; items: { stop_name: string }[] };
 export default function PackPage() {
   const [routes, setRoutes] = useState<R[]>([]);
   const [rid, setRid] = useState<number | "">("");
@@ -20,13 +20,13 @@ export default function PackPage() {
     <h2>装袋</h2>
     <div className="toolbar">
       <select value={rid} onChange={e => setRid(Number(e.target.value))}>{routes.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}</select>
-      <button onClick={run}>按路线顺序双约束装袋</button>
+      <button onClick={run}>按路线顺序装袋（冷热分袋）</button>
     </div>
     {msg && <div className="ok">{msg}</div>}
     {err && <div className="err">{err}</div>}
     {bags.map(b => (
       <div key={b.id}>
-        <div className="mono">袋 {b.bag_index} · {b.weight_kg}kg / {b.volume_l}L</div>
+        <div className="mono">袋 {b.bag_index}{b.is_cold ? " · ❄ 冷链袋" : " · 普通袋"} · {b.weight_kg}kg / {b.volume_l}L</div>
         <div className="bag-row">{b.items.map((it, i) => <div className="bag-block" key={i}>{it.stop_name}</div>)}</div>
       </div>
     ))}
